@@ -75,9 +75,7 @@ export class PipelineCdkStack extends Stack {
       ],
     });
 
-    new CfnOutput(this, 'GithubRepositoryUrl', {
-      value: sourceOutput.url,
-    });
+
   
   
 
