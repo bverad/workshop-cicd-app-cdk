@@ -5,6 +5,8 @@ import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as iam from 'aws-cdk-lib/aws-iam';
+
 
 interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
@@ -30,11 +32,48 @@ export class PipelineCdkStack extends Stack {
 
     });
 
+    const dockerBuild = new codebuild.PipelineProject(this, 'DockerBuild', {
+      environmentVariables: {
+        IMAGE_TAG: { value: 'latest' },
+        IMAGE_REPO_URI: { value: props.ecrRepository.repositoryUri },
+        AWS_DEFAULT_REGION: { value: process.env.CDK_DEFAULT_REGION },
+      },
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+        privileged: true,
+        computeType: codebuild.ComputeType.LARGE,
+      },
+      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_docker.yml'),
+    });
+
+    const dockerBuildRolePolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ['*'],
+      actions: [
+        'ecr:GetAuthorizationToken',
+        'ecr:BatchCheckLayerAvailability',
+        'ecr:GetDownloadUrlForLayer',
+        'ecr:GetRepositoryPolicy',
+        'ecr:DescribeRepositories',
+        'ecr:ListImages',
+        'ecr:DescribeImages',
+        'ecr:BatchGetImage',
+        'ecr:InitiateLayerUpload',
+        'ecr:UploadLayerPart',
+        'ecr:CompleteLayerUpload',
+        'ecr:PutImage',
+      ],
+    });
+
+    dockerBuild.addToRolePolicy(dockerBuildRolePolicy);
+
 
     // Definir los artefactos del pipeline
     const sourceOutput = new codepipeline.Artifact();
     const buildOutput = new codepipeline.Artifact();
     const unitTestOutput = new codepipeline.Artifact();
+    const dockerBuildOutput = new codepipeline.Artifact();
+
 
 
     // Definir la acción de origen para GitHub
@@ -62,6 +101,18 @@ export class PipelineCdkStack extends Stack {
           project: codeBuild,
           input: sourceOutput,
           outputs: [unitTestOutput],
+        }),
+      ],
+    });
+
+    pipeline.addStage({
+      stageName: 'docker-push-ecr',
+      actions: [
+        new codepipeline_actions.CodeBuildAction({
+          actionName: 'docker-build',
+          project: dockerBuild,
+          input: sourceOutput,
+          outputs: [dockerBuildOutput],
         }),
       ],
     });
