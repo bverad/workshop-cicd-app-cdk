@@ -4,25 +4,16 @@ import { Construct } from 'constructs';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+
+interface ConsumerProps extends StackProps {
+  ecrRepository: ecr.Repository;
+}
 
 
 export class PipelineCdkStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps) {
+  constructor(scope: Construct, id: string, props: ConsumerProps) {
     super(scope, id, props);
-
-    /*const sourceRepo = new codecommit.Repository(this, 'CICD_Workshop', {
-        repositoryName: 'CICD_Workshop',
-        description: 'Repository for my application code and infrastructure',
-    });
-
-    const pipeline = new codepipeline.Pipeline(this, 'Pipeline', {
-      pipelineName: 'CICD_Pipeline',
-      crossAccountKeys: false,
-    });
-
-    new CfnOutput(this, 'CodeCommitRepositoryUrl', {
-    value: sourceRepo.repositoryCloneUrlGrc,
-    });*/
 
     const pipeline = new codepipeline.Pipeline(this, 'Pipeline', {
       pipelineName: 'cicd_pipeline',
@@ -74,6 +65,25 @@ export class PipelineCdkStack extends Stack {
         }),
       ],
     });
+
+
+    // Exportar el nombre del pipeline
+    new cdk.CfnOutput(this, 'PipelineName', {
+      value: pipeline.pipelineName,
+      description: 'The name of the CodePipeline',
+      exportName: 'PipelineName',
+    });
+
+    // Exportar el nombre del repositorio de GitHub
+    new cdk.CfnOutput(this, 'GitHubRepoName', {
+      value: sourceAction.variables.repositoryName,
+      description: 'The name of the GitHub repository',
+      exportName: 'GitHubRepoName',
+    });
+
+
+
+    
 
 
   
